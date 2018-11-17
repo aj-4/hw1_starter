@@ -95,7 +95,26 @@ int beargit_add(const char* filename) {
  */
 
 int beargit_rm(const char* filename) {
-  /* COMPLETE THE REST */
+  FILE* findex = fopen(".beargit/.index", "r");
+  FILE *fnewindex = fopen(".beargit/.newindex", "w");
+
+  char line[FILENAME_SIZE];
+  int found;
+  while(fgets(line, sizeof(line), findex)) {
+    strtok(line, "\n");
+    if (strcmp(line, filename) == 0) {
+	found = 1;
+	continue;
+    }
+    fprintf(fnewindex, "%s\n", line);
+  }
+
+  fclose(findex);
+  fclose(fnewindex);
+
+  fs_mv(".beargit/.newindex", ".beargit/.index");
+
+  found ? printf("Removed commit\n") : printf("Commit not found\n");
 
   return 0;
 }
@@ -109,12 +128,37 @@ int beargit_rm(const char* filename) {
 const char* go_bears = "GO BEARS!";
 
 int is_commit_msg_ok(const char* msg) {
-  /* COMPLETE THE REST */
+  return 1;
+  int bear_index;
+  for(;*msg != '\0';msg++) {
+    if (bear_index == strlen(go_bears)) {
+	return 1;
+    }
+    printf("char is %c, bearchar is %c\n", *msg, go_bears[bear_index]);
+    if (go_bears[bear_index] != *msg) {
+	bear_index = 0;
+    } else {
+	bear_index++;
+    }
+  }
   return 0;
 }
 
 void next_commit_id(char* commit_id) {
-  /* COMPLETE THE REST */
+  do {
+    if (*commit_id == '0') {
+	*commit_id = '6';
+	break;
+    }
+    else if (*commit_id == '6') {
+	*commit_id = '1';
+	break;
+    }
+    else if (*commit_id == '1') {
+	*commit_id = 'c';
+	break;
+    }
+  } while(*commit_id++ == 'c');
 }
 
 int beargit_commit(const char* msg) {
@@ -127,7 +171,57 @@ int beargit_commit(const char* msg) {
   read_string_from_file(".beargit/.prev", commit_id, COMMIT_ID_SIZE);
   next_commit_id(commit_id);
 
-  /* COMPLETE THE REST */
+  char *newdir = malloc(
+    snprintf(newdir,0, ".beargit/%s", commit_id)
+  );
+  sprintf(newdir, ".beargit/%s", commit_id);
+  fs_mkdir(newdir);
+
+  char *indexdir = malloc(
+    snprintf(indexdir,0, "%s/.index", newdir)
+  );
+  sprintf(indexdir, "%s/.index", newdir);
+
+  fs_cp(".beargit/.index", indexdir);
+
+  char *prevdir = malloc(
+    snprintf(prevdir,0, "%s/.prev", newdir)
+  );
+  sprintf(prevdir, "%s/.prev", newdir);
+  fs_cp(".beargit/.prev", prevdir);
+
+  // copy all files over
+  FILE* findex = fopen(".beargit/.index", "r");
+
+  char line[FILENAME_SIZE];
+  while(fgets(line, sizeof(line), findex)) {
+    strtok(line, "\n");
+    
+    char *path = malloc(
+      snprintf(path,0, ".beargit/%s/%s", commit_id ,line)
+    );
+    sprintf(path, ".beargit/%s/%s", commit_id, line);
+    
+    fs_cp(line, path);
+
+    free(path);
+  }
+
+  fclose(findex);
+
+  // store message
+  char *msgpath = malloc(
+    snprintf(msgpath,0, ".beargit/%s/.msg", commit_id)
+  );
+  sprintf(msgpath, ".beargit/%s/.msg", commit_id);
+  write_string_to_file(msgpath, msg);
+  // store commit id in prev
+  write_string_to_file(".beargit/.prev", commit_id);
+
+  free(msgpath);
+  free(newdir);
+  free(prevdir);
+  free(indexdir);
 
   return 0;
 }
@@ -139,7 +233,21 @@ int beargit_commit(const char* msg) {
  */
 
 int beargit_status() {
-  /* COMPLETE THE REST */
+  FILE* findex = fopen(".beargit/.index", "r");
+
+  int count = 0;
+
+  printf("Tracked files:\n\n");
+
+  char line[FILENAME_SIZE];
+  while(fgets(line, sizeof(line), findex)) {
+    printf("%s\n", line);
+    count++;
+  }
+
+  printf("%d files total\n", count);
+
+  fclose(findex);
 
   return 0;
 }
@@ -151,7 +259,36 @@ int beargit_status() {
  */
 
 int beargit_log() {
-  /* COMPLETE THE REST */
+
+  // determine which path to look in first
+  char lc[COMMIT_ID_SIZE];
+  char msg[COMMIT_ID_SIZE];
+
+  char initial_path[] = ".beargit/.prev";
+  read_string_from_file(initial_path, lc, COMMIT_ID_SIZE);
+
+  // while the LAST we read is not empty
+  while (*lc != '0') {
+
+    char *path = malloc(COMMIT_ID_SIZE * 2);
+
+    // print the commit we got in the last loop
+    printf("commit %s\n", lc);
+
+    sprintf(path, ".beargit/%s/.msg", lc);
+
+    read_string_from_file(path, msg, COMMIT_ID_SIZE);
+
+    strtok(msg, "\n");
+    printf("\t %s\n", msg);
+
+    // get next commit
+    sprintf(path, ".beargit/%s/.prev", lc);
+
+    read_string_from_file(path, lc, COMMIT_ID_SIZE);
+
+    free(path);
+  }
 
   return 0;
 }
